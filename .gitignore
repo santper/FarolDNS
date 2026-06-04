@@ -1,0 +1,11 @@
+# ESP-IDF build directory
+build/
+
+# Local configuration files
+sdkconfig
+sdkconfig.old
+
+# Arduino temporary build files
+*.ino.elf
+*.ino.hex
+*.ino.bin
