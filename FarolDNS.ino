@@ -4,7 +4,7 @@
 
 // --- CONFIGURAÇÕES ---
 const char* ssid = "santper";
-const char* password = "aptodenill2";
+const char* password = "password";
 
 // Upstream DNS (Cloudflare)
 const IPAddress PRIMARY_DNS(1, 1, 1, 1); 
