@@ -1,0 +1,5 @@
+04/06/2026 - Minhas dicas para falar com a IA agy:
+
+Caso a placa FarolDNS perca a ethernet, o Wi-Fi pode assumir o mesmo IP da eth de modo que ficaria transparente para o roteador, só mais lento um pouco. Seria mais interessante ainda se a Wi-Fi conseguir ficar com os dois IPs, o IP dela e o IP da eth, se isso for possível com o ESP32-S3. Caso a eth volte o IP pula de volta para ela.
+
+Outra possibilidade é só funcionar uma interface por vez, com apenas um IP na placa. Se conectar cabo de rede e a ethernet subir então o Wi-Fi fica desativado. Se não houver W5500, ou se não conectar o cabo de rede, ou se não conseguir se comunicar pelo cabo, então ativa o Wi-Fi. Acho essa a opção mais racional pois só é necessário um canal de comunicação por vez para o funcionamento do DNS Server, facilita a configuração do roteador Huawei que só aceita dois DNS Server's e ainda por cima economiza energia e banda de Wi-Fi.

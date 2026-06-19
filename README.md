@@ -1,0 +1,87 @@
+# FarolDNS 📡
+
+Servidor DNS embarcado de baixo consumo de energia projetado para redes locais, com suporte a redundância física automática (failover Ethernet para Wi-Fi) e painel de controle web de fácil configuração.
+
+O projeto roda nativamente no microcontrolador **ESP32-S3** usando o framework oficial **ESP-IDF v5.x** em C.
+
+---
+
+## 🛠️ Hardware Utilizado
+
+- **Placa**: Waveshare ESP32-S3-ETH (com chip Ethernet W5500 e leitor MicroSD integrados de fábrica)
+- **Módulo de Memória**: ESP32-S3-WROOM-1 N16R8 (16 MB Flash, 8 MB PSRAM)
+
+### 📌 Pinagem Física (Waveshare ESP32-S3-ETH)
+
+Para referência rápida, a pinagem utilizada pelos periféricos integrados é:
+
+| Periférico | Sinal / Pino | GPIO (ESP32-S3) |
+|------------|--------------|-----------------|
+| **Ethernet (W5500)** | MOSI | GPIO 11 |
+| | MISO | GPIO 12 |
+| | CLK (SCLK) | GPIO 13 |
+| | CS (SS) | GPIO 14 |
+| | INT (Interrupt) | GPIO 10 |
+| | RST (Reset) | GPIO 9 |
+| **MicroSD** | MOSI | GPIO 6 |
+| | MISO | GPIO 5 |
+| | CLK (SCLK) | GPIO 7 |
+| | CS (SS) | GPIO 4 |
+
+---
+
+## 🏗️ Arquitetura do Projeto
+
+O firmware está estruturado de forma 100% modular dentro do diretório `components/`. O arquivo `main/main.c` atua apenas como um orquestrador de inicialização leve.
+
+### Módulos (Componentes) Implementados:
+
+1. **[storage_manager](components/storage_manager)**: Gerencia a partição NVS (Non-Volatile Storage) na Flash. Salva e recupera as configurações de rede (SSID, senha, modo DHCP/Estático) e o IP do servidor DNS público/upstream.
+2. **[ethernet_w5500](components/ethernet_w5500)**: Driver para o chip Ethernet W5500 utilizando barramento SPI2. Configura a rede cabeada em modo Polling.
+3. **[wifi_manager](components/wifi_manager)**: Gerencia a conexão Wi-Fi (modo Station) e cria um Access Point aberto (`FarolDNS_Setup`) de fallback caso o dispositivo precise ser configurado.
+4. **[network_manager](components/network_manager)**: O coração da redundância. Monitora eventos das interfaces Ethernet e Wi-Fi:
+   - Se o cabo Ethernet estiver conectado e obtiver IP, o Wi-Fi é desligado para economizar energia e evitar conflitos.
+   - Se a Ethernet perder a conexão, o Wi-Fi é automaticamente ativado (se conecta à rede salva ou inicia em modo AP se não houver credenciais).
+5. **[dns_server](components/dns_server)**: Servidor DNS Forwarder UDP escutando na porta 53. Encaminha as queries recebidas aos clientes para o DNS Upstream configurado (ex: `1.1.1.1` ou `8.8.8.8`) com controle de timeouts.
+6. **[mdns_manager](components/mdns_manager)**: Registra o hostname local (por padrão `faroldns.local`) facilitando o acesso ao painel de controle na rede local sem precisar digitar o endereço IP.
+7. **[web_config](components/web_config)**: Servidor HTTP embarcado que serve uma interface web moderna (Dark Mode/Glassmorphism). Expõe as seguintes rotas:
+   - `GET /` -> Carrega o painel administrativo (`index.html` embutido no binário).
+   - `GET /api/config` -> Retorna as configurações atuais gravadas na NVS em formato JSON.
+   - `POST /save` -> Recebe novas configurações em formato JSON, grava na NVS e agenda um reinício suave (soft reset) do ESP32 para aplicar as mudanças.
+
+---
+
+## 🚀 Como Compilar e Rodar
+
+### Pré-requisitos
+- ESP-IDF v5.x instalado na máquina de desenvolvimento.
+
+### 1. Exportar variáveis do ESP-IDF
+```bash
+. /home/isaac/esp/esp-idf/export.sh
+```
+
+### 2. Configurar o Target
+```bash
+idf.py set-target esp32s3
+```
+
+### 3. Compilar o Projeto
+```bash
+idf.py build
+```
+
+### 4. Gravar no ESP32-S3 e Monitorar
+Selecione a porta serial correta (ex: `/dev/ttyACM0` ou `/dev/ttyUSB0`):
+```bash
+idf.py -p PORT flash monitor
+```
+
+---
+
+## 📋 Como Testar o Dispositivo
+
+1. **Primeira Inicialização**: Sem credenciais salvas, o dispositivo não conseguirá se conectar à rede Wi-Fi. Se o cabo de rede Ethernet não estiver conectado, ele criará a rede Wi-Fi aberta `FarolDNS_Setup`.
+2. **Configuração**: Conecte-se à rede `FarolDNS_Setup` e acesse no navegador: [http://faroldns.local](http://faroldns.local) ou o IP do Access Point (normalmente `192.168.4.1`).
+3. **Painel de Controle**: Insira as credenciais do seu Wi-Fi residencial/corporativo, configure se as interfaces usarão DHCP ou IPs estáticos, defina o DNS Upstream e salve. O ESP32 reiniciará automaticamente.
+4. **Redundância**: Se você plugar o cabo Ethernet, o ESP32 desativará o Wi-Fi e passará a usar a rede cabeada. Se desconectar o cabo, a interface Wi-Fi assumirá a conexão de forma transparente em poucos segundos.
