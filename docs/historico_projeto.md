@@ -82,12 +82,21 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
     *   Cenário 3 (DNS via Wi-Fi): ✅ Funcionou
     *   Cenário 4 (Ethernet failover): ❌ Falhou (MAC zerado impedia DHCP)
     *   Cenário 5 (Fallback Ethernet→Wi-Fi): ❌ Falhou (MAC zerado)
-*   **Firmware corrigido foi gravado mas não testado** — os testes dos cenários 4 e 5 com as correções estão pendentes.
+*   **Testes realizados (22:37 às 22:51)** com o firmware corrigido (`b2a78ae-dirty`, compilado 22:17):
+    *   **Boot/Pós-RAM**: ✅ PSRAM 8MB detectado nos 3 boots
+    *   **MAC eFuse**: ✅ Lido corretamente (`28:84:85:54:b7:6f`)
+    *   **Wi-Fi Station**: ✅ Conectou na rede "santper", IP `192.168.3.168`
+    *   **Ethernet DHCP**: ✅ IP `192.168.3.169`
+    *   **Failover Ethernet→Wi-Fi** (cabo removido): ✅ Transição em ~1s
+    *   **Failover Wi-Fi→Ethernet** (cabo conectado): ✅ Transição imediata
+    *   **DNS Forwarding**: ✅ Consultas de `192.168.3.11` → `1.1.1.1` → resposta
+    *   **Web UI**: ✅ Acessível (favicon.ico requests recebidos)
+    *   **mDNS**: ❌ Não testado / não funcional (sem consultas nos logs)
+    *   **Boot race condition**: ⚠️ Boot 1 e 2 dispararam Wi-Fi antes do Ethernet Link Up (4s insuficiente). Boot 3 funcionou (link em 3s).
 *   **Issues conhecidas**:
     *   IP diferente entre Wi-Fi (`.168`) e Ethernet (`.169`) — usuário optou por IP estático.
     *   mDNS (`faroldns.local`) só funciona no Wi-Fi — precisa associar `netif` correta ao comutar interface.
-    *   Latência no boot (espera de 4s pode ser insuficiente para negociação Ethernet).
-    *   Race condition no boot parcialmente mitigada.
+    *   **Boot race condition confirmada**: `vTaskDelay(4000)` não sincroniza com `ETHERNET_EVENT_CONNECTED`. Link Ethernet varia entre 3s e 5s+.
 *   **Nova arquitetura solicitada**: Usuário quer controle granular de interfaces (Wi-Fi ON/OFF, ETH ON/OFF, suporte a ambas ativas com IPs diferentes em sub-redes distintas).
 
 ---

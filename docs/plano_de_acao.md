@@ -44,6 +44,25 @@ O firmware com as correções da sessão 19/06 foi gravado mas **nunca testado**
 | 0.2 | **Testar Cenário 5 (Failover)** | Remover cabo Ethernet, verificar fallback para Wi-Fi. `dig @<IP_WIFI> google.com` |
 | 0.3 | **Testar IP estático** | Configurar IP estático via web UI, reboot, verificar se IP fixo é mantido |
 
+### Resultados dos Testes (espmon.log — 19/06 22:37-22:51)
+
+O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
+
+| Teste | Resultado |
+|-------|-----------|
+| PSRAM 8MB | ✅ OK nos 3 boots |
+| MAC eFuse (`28:84:85:54:b7:6f`) | ✅ Lido corretamente |
+| Wi-Fi Station ("santper") | ✅ Conectou, IP `192.168.3.168` |
+| Ethernet DHCP | ✅ IP `192.168.3.169` |
+| Failover Ethernet→Wi-Fi (cabo removido) | ✅ Transição em ~1s |
+| Failover Wi-Fi→Ethernet (cabo conectado) | ✅ Transição imediata |
+| DNS Forwarding (`1.1.1.1`) | ✅ Consultas resolvidas |
+| Web UI | ✅ Acessível |
+| mDNS | ❌ Sem consultas nos logs |
+| **Boot race condition** | ⚠️ Confirmada: Boot 1 e 2 dispararam Wi-Fi antes do Ethernet Link Up (delay de 4s insuficiente). Boot 3 funcionou (link em 3s). |
+
+**Conclusão**: O firmware corrigido está funcional, mas a **race condition no boot** (item 1.2) precisa ser resolvida para eliminar o fallback Wi-Fi desnecessário ao ligar com cabo Ethernet conectado.
+
 ---
 
 ## Fase 1 — Correções e Estabilização (Prioridade Alta)
@@ -51,8 +70,8 @@ O firmware com as correções da sessão 19/06 foi gravado mas **nunca testado**
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
 | 1.1 | **Corrigir mDNS p/ interface ativa** | `mdns_manager.c`, `network_manager.c` | Chamar `mdns_register_netif()` na interface ativa (Ethernet ou Wi-Fi) ao trocar estado. Atualmente o mDNS só funciona no Wi-Fi porque a netif padrão não é atualizada. |
-| 1.2 | **Atraso de boot (4s)** | `network_manager.c:63` | Reduzir `vTaskDelay(4000)` ou torná-lo adaptativo: esperar até link Ethernet ou timeout menor (ex: 2s) para não atrasar o fallback Wi-Fi. |
-| 1.3 | **Race condition boot** | `network_manager.c` | Verificar se `eth_w5500_is_connected()` retorna false no estado `NET_STATE_INIT` antes de decidir fallback. O evento `ETHERNET_EVENT_CONNECTED` pode chegar depois do vTaskDelay. |
+| 1.2 | **Atraso de boot (4s)** | `network_manager.c:63` | Substituir `vTaskDelay(4000)` por espera orientada a evento: aguardar `ETHERNET_EVENT_CONNECTED` com timeout de ~8s, ou usar `ulTaskNotifyTake` com timeout. Testes mostraram link Ethernet entre 3s e 5s+. |
+| 1.3 | **Race condition boot** | `network_manager.c` | Após o timeout, verificar `eth_w5500_is_connected()` **uma vez mais** antes de decidir fallback. O evento `ETHERNET_EVENT_CONNECTED` pode chegar durante o processamento do timeout. |
 | 1.4 | **Remover `gpio_install_isr_service` duplicado** | `ethernet_w5500.c:140` | Pode crashar se já instalado por outro componente. Tratar retorno `ESP_ERR_INVALID_STATE` como OK. |
 
 ---
