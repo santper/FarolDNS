@@ -10,6 +10,7 @@
 #include "esp_eth_phy.h"
 #include "ethernet_w5500.h"
 #include "storage_manager.h"
+#include "esp_mac.h"
 
 // Note: lwip/ip_addr.h is required for ipaddr_addr
 #include "lwip/ip_addr.h"
@@ -25,6 +26,7 @@ static void eth_event_handler(void *arg, esp_event_base_t event_base,
     switch (event_id) {
     case ETHERNET_EVENT_CONNECTED:
         ESP_LOGI(TAG, "Ethernet Link Up");
+        s_connected = true;
         break;
     case ETHERNET_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "Ethernet Link Down");
@@ -52,7 +54,6 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "IP:      " IPSTR, IP2STR(&ip_info->ip));
     ESP_LOGI(TAG, "Netmask: " IPSTR, IP2STR(&ip_info->netmask));
     ESP_LOGI(TAG, "Gateway: " IPSTR, IP2STR(&ip_info->gw));
-    s_connected = true;
 }
 
 esp_err_t eth_w5500_init(void)
@@ -145,6 +146,12 @@ esp_err_t eth_w5500_init(void)
     esp_eth_config_t eth_config = ETH_DEFAULT_CONFIG(mac, phy);
     
     ESP_ERROR_CHECK(esp_eth_driver_install(&eth_config, &s_eth_handle));
+
+    // Define o endereço MAC gerado a partir do eFuse do ESP32 para a interface Ethernet
+    uint8_t mac_addr[6] = {0};
+    ESP_ERROR_CHECK(esp_read_mac(mac_addr, ESP_MAC_ETH));
+    ESP_ERROR_CHECK(esp_eth_ioctl(s_eth_handle, ETH_CMD_S_MAC_ADDR, mac_addr));
+
     ESP_ERROR_CHECK(esp_netif_attach(s_eth_netif, esp_eth_new_netif_glue(s_eth_handle)));
     ESP_ERROR_CHECK(esp_eth_start(s_eth_handle));
 

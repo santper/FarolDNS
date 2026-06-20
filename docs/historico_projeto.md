@@ -67,6 +67,31 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
 
 ---
 
+### D. 19 de Junho/2026 - Fase 4: Correções de Hardware e Testes
+*   **Objetivo**: Gravar firmware na placa física Waveshare ESP32-S3-ETH e validar funcionamento.
+*   **Problemas corrigidos**:
+    1.  **PSRAM Boot Loop**: A placa reiniciava infinitamente. Corrigido adicionando `CONFIG_SPIRAM_MODE_OCT=y` e `CONFIG_SPIRAM_SPEED_80M=y` no `sdkconfig.defaults`.
+    2.  **MAC Address zerado (`00:00:00:00:00:00`)** no W5500: Corrigido lendo o MAC do eFuse com `esp_read_mac()` e aplicando via `esp_eth_ioctl(ETH_CMD_S_MAC_ADDR)`.
+    3.  **SPI frame format incorreto**: `command_bits` alterado de `0` para `16` no `ethernet_w5500.c` (formato exigido pelo W5500).
+    4.  **GPIO ISR service não instalado**: Adicionado `gpio_install_isr_service(0)` antes de iniciar o W5500.
+    5.  **Detecção de link lenta**: `s_connected` passou a ser setado em `ETHERNET_EVENT_CONNECTED` (antes era apenas no `GOT_IP`).
+*   **Compilação**: ✅ Bem-sucedida. Firmware gravado na placa.
+*   **Testes realizados** (com firmware anterior às correções):
+    *   Cenário 1 (AP Setup): ✅ Funcionou
+    *   Cenário 2 (Wi-Fi Station): ✅ Funcionou
+    *   Cenário 3 (DNS via Wi-Fi): ✅ Funcionou
+    *   Cenário 4 (Ethernet failover): ❌ Falhou (MAC zerado impedia DHCP)
+    *   Cenário 5 (Fallback Ethernet→Wi-Fi): ❌ Falhou (MAC zerado)
+*   **Firmware corrigido foi gravado mas não testado** — os testes dos cenários 4 e 5 com as correções estão pendentes.
+*   **Issues conhecidas**:
+    *   IP diferente entre Wi-Fi (`.168`) e Ethernet (`.169`) — usuário optou por IP estático.
+    *   mDNS (`faroldns.local`) só funciona no Wi-Fi — precisa associar `netif` correta ao comutar interface.
+    *   Latência no boot (espera de 4s pode ser insuficiente para negociação Ethernet).
+    *   Race condition no boot parcialmente mitigada.
+*   **Nova arquitetura solicitada**: Usuário quer controle granular de interfaces (Wi-Fi ON/OFF, ETH ON/OFF, suporte a ambas ativas com IPs diferentes em sub-redes distintas).
+
+---
+
 ## 5. Próximos Passos (Planejamento)
 
 1.  **`web_config` (Próximo Módulo)**: Criar o servidor HTTP embarcado para o painel de configurações.
