@@ -51,6 +51,34 @@ O firmware está estruturado de forma 100% modular dentro do diretório `compone
 
 ---
 
+## ✅ Requisitos Funcionais
+
+| # | Requisito | Descrição |
+|---|-----------|-----------|
+| RF1 | DNS Forwarder | Escuta na porta UDP 53 e encaminha consultas para upstream configurável (ex: `1.1.1.1`) |
+| RF2 | Failover automático | Prioridade Ethernet; se o cabo cair, Wi-Fi assume em segundos |
+| RF3 | IP estático / DHCP | Suporte a ambas interfaces, configurável via web UI |
+| RF4 | Painel web de configuração | Interface dark mode para configurar SSID, senha, DNS upstream, IPs |
+| RF5 | mDNS | Responde como `faroldns.local` na interface ativa |
+| RF6 | Persistência | Configurações salvas em NVS flash, mantidas após reboot |
+| RF7 | Modo AP inicial | Cria rede `FarolDNS_Setup` aberta se não houver Ethernet nem credenciais |
+
+## 🎯 Casos de Uso
+
+1. **Primeira inicialização**: Sem cabo Ethernet e sem credenciais salvas → AP `FarolDNS_Setup` aberto
+2. **Configuração**: Conectar no AP, acessar `http://faroldns.local`, configurar rede e salvar
+3. **Uso normal via Wi-Fi**: DNS forwarder ativo no IP do Wi-Fi
+4. **Conexão do cabo Ethernet**: Wi-Fi desliga, DNS passa a responder no IP da Ethernet
+5. **Queda da Ethernet**: Wi-Fi reativa automaticamente, DNS continua respondendo
+6. **Reconfiguração**: Acessar web UI pelo IP vigente, alterar configurações e salvar
+
+## 🏛️ Decisões de Arquitetura
+
+- **Failover simples**: No máximo uma interface ativa por vez (seletor: `eth_only`, `wifi_only`, `auto`). Prioridade Ethernet quando em modo `auto`. Elimina conflitos ARP e simplifica o DNS.
+- **Modular**: Cada componente em `components/` com seu `CMakeLists.txt`. `main/main.c` é apenas orquestrador.
+- **DNS forwarder (não recursivo)**: Encaminha para upstream (ex: `1.1.1.1`). Recursividade completa é postergada.
+- **Configuração em blob NVS único**: Simplicidade > versionamento. Um `esp_err_t` salva/carrega a struct inteira.
+
 ## 🚀 Como Compilar e Rodar
 
 ### Pré-requisitos
@@ -85,3 +113,15 @@ idf.py -p PORT flash monitor
 2. **Configuração**: Conecte-se à rede `FarolDNS_Setup` e acesse no navegador: [http://faroldns.local](http://faroldns.local) ou o IP do Access Point (normalmente `192.168.4.1`).
 3. **Painel de Controle**: Insira as credenciais do seu Wi-Fi residencial/corporativo, configure se as interfaces usarão DHCP ou IPs estáticos, defina o DNS Upstream e salve. O ESP32 reiniciará automaticamente.
 4. **Redundância**: Se você plugar o cabo Ethernet, o ESP32 desativará o Wi-Fi e passará a usar a rede cabeada. Se desconectar o cabo, a interface Wi-Fi assumirá a conexão de forma transparente em poucos segundos.
+
+---
+
+## 📚 Documentação
+
+| Arquivo | Conteúdo |
+|---------|----------|
+| [`docs/historico_projeto.md`](docs/historico_projeto.md) | Histórico completo de desenvolvimento e decisões de arquitetura |
+| [`docs/plano_de_acao.md`](docs/plano_de_acao.md) | Plano de tarefas priorizadas para as próximas sessões |
+| [`docs/plano_de_testes.md`](docs/plano_de_testes.md) | Cenários de teste de bancada detalhados |
+| [`docs/hardware/pinagem_esp32_s3_eth.md`](docs/hardware/pinagem_esp32_s3_eth.md) | Pinagem física da placa Waveshare ESP32-S3-ETH |
+| [`.opencoderules.md`](.opencoderules.md) | Regras de codificação para sessões com IA |

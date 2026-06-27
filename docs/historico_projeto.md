@@ -97,11 +97,13 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
     *   IP diferente entre Wi-Fi (`.168`) e Ethernet (`.169`) — usuário optou por IP estático.
     *   mDNS (`faroldns.local`) só funciona no Wi-Fi — precisa associar `netif` correta ao comutar interface.
     *   **Boot race condition confirmada**: `vTaskDelay(4000)` não sincroniza com `ETHERNET_EVENT_CONNECTED`. Link Ethernet varia entre 3s e 5s+.
-*   **Nova arquitetura solicitada**: Usuário quer controle granular de interfaces (Wi-Fi ON/OFF, ETH ON/OFF, suporte a ambas ativas com IPs diferentes em sub-redes distintas).
+*   **Nova arquitetura solicitada**: Usuário quer controle granular de interfaces (Wi-Fi ON/OFF, ETH ON/OFF). Após reavaliação, optou-se por manter no máximo uma interface ativa por vez (failover simples), com seletor de 3 modos: `eth_only`, `wifi_only`, `auto`.
+*   **Arquivos modificados nesta sessão**: `sdkconfig.defaults`, `components/ethernet_w5500/ethernet_w5500.c`, `docs/plano_de_testes.md`, `README.md`
+*   **Commits**: `32070c2` (plano de testes/documentação), `b2a78ae` (correções PSRAM/SPI/GPIO)
 
 ---
 
-## 5. Próximos Passos (Planejamento)
+## 5. Próximos Passos (Histórico — Planejamento Original)
 
 1.  **`web_config` (Próximo Módulo)**: Criar o servidor HTTP embarcado para o painel de configurações.
 2.  **`mdns_manager`**: Sobe o serviço mDNS para responder ao nome local `faroldns.local`.

@@ -2,7 +2,7 @@
 
 > Gerado em 20/06/2026 após análise completa do código (Antigravity CLI).
 > Baseado nos arquivos: arquivos fonte em `main/` e `components/`, `docs/historico_projeto.md`,
-> `docs/plano_de_testes.md`, `docs/dicas.txt`, `Resumo da Sessão 2026-06-19.md`, `.opencoderules.md`.
+> `docs/plano_de_testes.md`, `docs/dicas.txt`, `.opencoderules.md`.
 
 ## Contexto Atual
 
@@ -76,13 +76,12 @@ O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
 
 ---
 
-## Fase 2 — Expansão da Configuração (Média Prioridade)
+## Fase 2 — Controle de Interfaces (Média Prioridade)
 
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
-| 2.1 | **Campos `wifi_enabled` / `eth_enabled`** | `storage_manager.h`, `web_config.c`, `index.html` | Adicionar flags booleanas ao `faroldns_config_t` para habilitar/desabilitar cada interface independentemente. |
-| 2.2 | **Suporte a dual-interface simultânea** | `network_manager.c`, `wifi_manager.c` | Se ambas interfaces habilitadas com IPs diferentes, manter ambas ativas (sub-redes diferentes). Se mesmo IP, prioridade Ethernet (como hoje). |
-| 2.3 | **Migrar config p/ NVS em campo individual** | `storage_manager.c` | Em vez de blob único, salvar campos individuais na NVS para permitir versionamento futuro e evitar corrupção por mudança de struct. |
+| 2.1 | **Seletor de modo de rede** | `storage_manager.h`, `web_config.c`, `index.html` | Adicionar campo `net_mode` ao `faroldns_config_t` com 3 opções: `eth_only`, `wifi_only`, `auto` (failover atual). Interface não selecionada fica desligada. |
+| 2.2 | **Migrar config p/ NVS em campo individual** | `storage_manager.c` | (Baixa prioridade) Em vez de blob único, salvar campos individuais na NVS para permitir versionamento futuro e evitar corrupção por mudança de struct. |
 
 ---
 
@@ -118,7 +117,7 @@ O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
 
 ## Referências
 
-- `Resumo da Sessão 2026-06-19.md` — resumo detalhado da última sessão com Antigravity, incluindo correções aplicadas, resultados de testes e pendências.
+- `docs/historico_projeto.md` (seção E) — resumo da última sessão com correções aplicadas, resultados de testes e pendências.
 - `espmon.log` — logs seriais capturados durante os testes de bancada.
 
 ---
@@ -128,10 +127,9 @@ O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
 Na próxima sessão, peça para a IA ler:
 
 1. `docs/plano_de_acao.md` — este arquivo (prioridades e pendências)
-2. `docs/historico_projeto.md` — histórico completo e decisões de arquitetura
+2. `docs/historico_projeto.md` — histórico completo, decisões de arquitetura e última sessão (seção E)
 3. `docs/plano_de_testes.md` — cenários de teste
 4. `docs/dicas.txt` — observações do usuário
 5. `.opencoderules.md` — regras de codificação do projeto
-6. `Resumo da Sessão 2026-06-19.md` — última sessão com Antigravity
 
 E também os arquivos fonte relevantes para a tarefa específica que for iniciar.
