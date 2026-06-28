@@ -31,6 +31,17 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         ESP_LOGI(TAG, "Wi-Fi adquiriu IP com sucesso!");
         ESP_LOGI(TAG, "IP: " IPSTR, IP2STR(&ip_info->ip));
         s_connected = true;
+
+        // Captura o IP obtido via DHCP como IP fixo na config
+        faroldns_config_t cfg;
+        if (storage_load_config(&cfg) == ESP_OK && cfg.dhcp_enabled) {
+            snprintf(cfg.ip, sizeof(cfg.ip), IPSTR, IP2STR(&ip_info->ip));
+            snprintf(cfg.netmask, sizeof(cfg.netmask), IPSTR, IP2STR(&ip_info->netmask));
+            snprintf(cfg.gw, sizeof(cfg.gw), IPSTR, IP2STR(&ip_info->gw));
+            cfg.dhcp_enabled = false;
+            storage_save_config(&cfg);
+            ESP_LOGI(TAG, "IP DHCP capturado como IP fixo: %s", cfg.ip);
+        }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_START) {
         ESP_LOGI(TAG, "Wi-Fi Access Point (AP) iniciado. SSID: %s", WIFI_AP_SSID);
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
@@ -122,16 +133,16 @@ esp_err_t wifi_manager_start_sta(void)
 
     s_wifi_netif = esp_netif_create_default_wifi_sta();
 
-    // Se IP estatico estiver configurado para o Wi-Fi, desativa DHCP client e define IP
-    if (!config.wifi_dhcp && strlen(config.wifi_ip) > 0) {
+    // Se IP estatico estiver configurado, desativa DHCP client e define IP
+    if (!config.dhcp_enabled && strlen(config.ip) > 0) {
         ESP_LOGI(TAG, "Configurando IP estatico para Wi-Fi...");
         esp_netif_dhcpc_stop(s_wifi_netif);
         
         esp_netif_ip_info_t ip_info;
         memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
-        ip_info.ip.addr = ipaddr_addr(config.wifi_ip);
-        ip_info.netmask.addr = ipaddr_addr(config.wifi_netmask);
-        ip_info.gw.addr = ipaddr_addr(config.wifi_gw);
+        ip_info.ip.addr = ipaddr_addr(config.ip);
+        ip_info.netmask.addr = ipaddr_addr(config.netmask);
+        ip_info.gw.addr = ipaddr_addr(config.gw);
         
         esp_netif_set_ip_info(s_wifi_netif, &ip_info);
     }

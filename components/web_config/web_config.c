@@ -3,10 +3,16 @@
 #include "esp_log.h"
 #include "esp_http_server.h"
 #include "esp_system.h"
+#include "esp_mac.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "cJSON.h"
 #include "storage_manager.h"
+#include "network_manager.h"
+#include "dns_server.h"
+#include "ethernet_w5500.h"
+#include "wifi_manager.h"
 #include "web_config.h"
 
 static const char *TAG = "WebConfig";
@@ -36,20 +42,72 @@ static esp_err_t config_api_get_handler(httpd_req_t *req)
     }
 
     cJSON *root = cJSON_CreateObject();
+    cJSON_AddNumberToObject(root, "net_mode", config.net_mode);
     cJSON_AddStringToObject(root, "hostname", config.hostname);
     cJSON_AddStringToObject(root, "upstream_dns", config.upstream_dns);
     
-    cJSON_AddBoolToObject(root, "eth_dhcp", config.eth_dhcp);
-    cJSON_AddStringToObject(root, "eth_ip", config.eth_ip);
-    cJSON_AddStringToObject(root, "eth_netmask", config.eth_netmask);
-    cJSON_AddStringToObject(root, "eth_gw", config.eth_gw);
+    cJSON_AddBoolToObject(root, "dhcp_enabled", config.dhcp_enabled);
+    cJSON_AddStringToObject(root, "ip", config.ip);
+    cJSON_AddStringToObject(root, "netmask", config.netmask);
+    cJSON_AddStringToObject(root, "gw", config.gw);
     
     cJSON_AddStringToObject(root, "wifi_ssid", config.wifi_ssid);
     cJSON_AddStringToObject(root, "wifi_pass", config.wifi_pass);
-    cJSON_AddBoolToObject(root, "wifi_dhcp", config.wifi_dhcp);
-    cJSON_AddStringToObject(root, "wifi_ip", config.wifi_ip);
-    cJSON_AddStringToObject(root, "wifi_netmask", config.wifi_netmask);
-    cJSON_AddStringToObject(root, "wifi_gw", config.wifi_gw);
+
+    char *json_str = cJSON_PrintUnformatted(root);
+    cJSON_Delete(root);
+
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, json_str);
+    free(json_str);
+
+    return ESP_OK;
+}
+
+// Handler para fornecer status do sistema em JSON
+static esp_err_t status_api_get_handler(httpd_req_t *req)
+{
+    cJSON *root = cJSON_CreateObject();
+
+    network_state_t state = network_manager_get_state();
+    cJSON_AddStringToObject(root, "state", network_manager_state_to_str(state));
+
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_ETH);
+    char mac_str[18];
+    snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    cJSON_AddStringToObject(root, "mac", mac_str);
+
+    // Tenta obter IP da interface ativa
+    esp_netif_t *active_netif = NULL;
+    if (state == NET_STATE_ETHERNET) {
+        active_netif = eth_w5500_get_netif();
+    } else if (state == NET_STATE_WIFI_STA || state == NET_STATE_WIFI_AP) {
+        active_netif = wifi_manager_get_netif();
+    }
+
+    if (active_netif) {
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(active_netif, &ip_info) == ESP_OK) {
+            char ip_str[16];
+            snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info.ip));
+            cJSON_AddStringToObject(root, "ip", ip_str);
+            snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info.netmask));
+            cJSON_AddStringToObject(root, "netmask", ip_str);
+            snprintf(ip_str, sizeof(ip_str), IPSTR, IP2STR(&ip_info.gw));
+            cJSON_AddStringToObject(root, "gw", ip_str);
+        }
+    }
+
+    // Uptime em segundos
+    int64_t uptime_us = esp_timer_get_time();
+    cJSON_AddNumberToObject(root, "uptime_sec", (int32_t)(uptime_us / 1000000));
+
+    // Estatisticas do DNS
+    cJSON_AddNumberToObject(root, "dns_queries", dns_server_get_query_count());
+    cJSON_AddNumberToObject(root, "bytes_sent", dns_server_get_bytes_sent());
+    cJSON_AddNumberToObject(root, "bytes_received", dns_server_get_bytes_received());
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -119,24 +177,24 @@ static esp_err_t config_save_post_handler(httpd_req_t *req)
         strncpy(config.upstream_dns, item->valuestring, sizeof(config.upstream_dns) - 1);
     }
 
-    item = cJSON_GetObjectItem(root, "eth_dhcp");
+    item = cJSON_GetObjectItem(root, "dhcp_enabled");
     if (cJSON_IsBool(item)) {
-        config.eth_dhcp = cJSON_IsTrue(item);
+        config.dhcp_enabled = cJSON_IsTrue(item);
     }
 
-    item = cJSON_GetObjectItem(root, "eth_ip");
+    item = cJSON_GetObjectItem(root, "ip");
     if (cJSON_IsString(item)) {
-        strncpy(config.eth_ip, item->valuestring, sizeof(config.eth_ip) - 1);
+        strncpy(config.ip, item->valuestring, sizeof(config.ip) - 1);
     }
 
-    item = cJSON_GetObjectItem(root, "eth_netmask");
+    item = cJSON_GetObjectItem(root, "netmask");
     if (cJSON_IsString(item)) {
-        strncpy(config.eth_netmask, item->valuestring, sizeof(config.eth_netmask) - 1);
+        strncpy(config.netmask, item->valuestring, sizeof(config.netmask) - 1);
     }
 
-    item = cJSON_GetObjectItem(root, "eth_gw");
+    item = cJSON_GetObjectItem(root, "gw");
     if (cJSON_IsString(item)) {
-        strncpy(config.eth_gw, item->valuestring, sizeof(config.eth_gw) - 1);
+        strncpy(config.gw, item->valuestring, sizeof(config.gw) - 1);
     }
 
     item = cJSON_GetObjectItem(root, "wifi_ssid");
@@ -149,24 +207,12 @@ static esp_err_t config_save_post_handler(httpd_req_t *req)
         strncpy(config.wifi_pass, item->valuestring, sizeof(config.wifi_pass) - 1);
     }
 
-    item = cJSON_GetObjectItem(root, "wifi_dhcp");
-    if (cJSON_IsBool(item)) {
-        config.wifi_dhcp = cJSON_IsTrue(item);
-    }
-
-    item = cJSON_GetObjectItem(root, "wifi_ip");
-    if (cJSON_IsString(item)) {
-        strncpy(config.wifi_ip, item->valuestring, sizeof(config.wifi_ip) - 1);
-    }
-
-    item = cJSON_GetObjectItem(root, "wifi_netmask");
-    if (cJSON_IsString(item)) {
-        strncpy(config.wifi_netmask, item->valuestring, sizeof(config.wifi_netmask) - 1);
-    }
-
-    item = cJSON_GetObjectItem(root, "wifi_gw");
-    if (cJSON_IsString(item)) {
-        strncpy(config.wifi_gw, item->valuestring, sizeof(config.wifi_gw) - 1);
+    item = cJSON_GetObjectItem(root, "net_mode");
+    if (cJSON_IsNumber(item)) {
+        int mode = item->valueint;
+        if (mode >= NET_MODE_AUTO && mode <= NET_MODE_WIFI_ONLY) {
+            config.net_mode = (uint8_t)mode;
+        }
     }
 
     cJSON_Delete(root);
@@ -210,6 +256,13 @@ static const httpd_uri_t config_save_post_uri = {
     .user_ctx  = NULL
 };
 
+static const httpd_uri_t status_get_uri = {
+    .uri       = "/api/status",
+    .method    = HTTP_GET,
+    .handler   = status_api_get_handler,
+    .user_ctx  = NULL
+};
+
 esp_err_t web_config_start(void)
 {
     if (s_server != NULL) {
@@ -226,6 +279,7 @@ esp_err_t web_config_start(void)
         httpd_register_uri_handler(s_server, &index_get_uri);
         httpd_register_uri_handler(s_server, &config_get_uri);
         httpd_register_uri_handler(s_server, &config_save_post_uri);
+        httpd_register_uri_handler(s_server, &status_get_uri);
         ESP_LOGI(TAG, "Servidor HTTP iniciado com sucesso.");
     } else {
         ESP_LOGE(TAG, "Falha ao iniciar servidor HTTP: %s", esp_err_to_name(err));

@@ -103,6 +103,23 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
 
 ---
 
+### F. 27–28 de Junho/2026 — IP Único, Dashboard com Status, Hostname Único
+
+*   **Objetivo**: Unificar configuração de IP em único conjunto (Ethernet e Wi-Fi compartilham o mesmo IP), adicionar dashboard com status em tempo real, e implementar hostname único via probe mDNS.
+*   **Mudanças na struct da NVS**:
+    *   Adicionado `config_version` para detectar blobs incompatíveis e resetar automaticamente.
+    *   Substituídos 8 campos de IP (wifi_dhcp, wifi_ip, wifi_netmask, wifi_gw, eth_dhcp, eth_ip, eth_netmask, eth_gw) por 4: `dhcp_enabled`, `ip`, `netmask`, `gw`.
+    *   Primeiro IP obtido via DHCP é automaticamente salvo como IP fixo (captura única).
+*   **Seletor de modo de rede**: Campo `net_mode` (auto/eth_only/wifi_only) na config e na UI.
+*   **Dashboard com status**: Nova rota `GET /api/status` retornando interface ativa, IP, MAC, uptime, consultas DNS e bytes trafegados. Card animado no topo da UI com polling a cada 5s.
+*   **Hostname único via probe**: Ao iniciar, sonda `faroldns1.local`, `faroldns2.local`... via `mdns_query_a()` até encontrar um disponível. Default alterado para `faroldns1` (minúsculo).
+*   **Correção mDNS no Ethernet**: `if_key` do netif Ethernet alterado de `"ETH_SPI_5500"` para `"ETH_DEF"` (o mDNS do ESP-IDF busca por `ETH_DEF`).
+*   **Contadores DNS**: Adicionados `volatile` para leitura correta entre tasks (DNS task x HTTP task).
+*   **Arquivos modificados**: 13 arquivos em `components/` (storage_manager, ethernet_w5500, wifi_manager, network_manager, dns_server, mdns_manager, web_config).
+*   **Commits**: `2020d87` (Fase 1), pendente (Fase 2)
+
+---
+
 ## 5. Próximos Passos (Histórico — Planejamento Original)
 
 1.  **`web_config` (Próximo Módulo)**: Criar o servidor HTTP embarcado para o painel de configurações.

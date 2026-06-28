@@ -22,13 +22,12 @@ esp_err_t storage_init(void)
 void storage_get_default_config(faroldns_config_t *config)
 {
     memset(config, 0, sizeof(faroldns_config_t));
-    strncpy(config->hostname, "FarolDNS", sizeof(config->hostname) - 1);
+    config->config_version = CONFIG_VERSION_CURRENT;
+    config->net_mode = NET_MODE_AUTO;
+    strncpy(config->hostname, "faroldns1", sizeof(config->hostname) - 1);
     
-    // Wi-Fi settings - default empty, DHCP enabled
-    config->wifi_dhcp = true;
-    
-    // Ethernet settings - default DHCP enabled
-    config->eth_dhcp = true;
+    // IP settings - default DHCP enabled
+    config->dhcp_enabled = true;
     
     // DNS settings - default 1.1.1.1
     strncpy(config->upstream_dns, "1.1.1.1", sizeof(config->upstream_dns) - 1);
@@ -64,7 +63,14 @@ esp_err_t storage_load_config(faroldns_config_t *config)
             ESP_LOGE(TAG, "Error reading config blob: %s", esp_err_to_name(err));
         }
     } else {
-        ESP_LOGI(TAG, "Configuration successfully loaded from NVS");
+        // Verifica se a versão da config é compatível
+        if (config->config_version != CONFIG_VERSION_CURRENT) {
+            ESP_LOGW(TAG, "Config version mismatch (%d != %d). Resetting to defaults.",
+                     config->config_version, CONFIG_VERSION_CURRENT);
+            storage_get_default_config(config);
+        } else {
+            ESP_LOGI(TAG, "Configuration successfully loaded from NVS");
+        }
     }
 
     nvs_close(my_handle);

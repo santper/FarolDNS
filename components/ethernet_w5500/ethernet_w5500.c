@@ -54,6 +54,17 @@ static void got_ip_event_handler(void *arg, esp_event_base_t event_base,
     ESP_LOGI(TAG, "IP:      " IPSTR, IP2STR(&ip_info->ip));
     ESP_LOGI(TAG, "Netmask: " IPSTR, IP2STR(&ip_info->netmask));
     ESP_LOGI(TAG, "Gateway: " IPSTR, IP2STR(&ip_info->gw));
+
+    // Captura o IP obtido via DHCP como IP fixo na config
+    faroldns_config_t cfg;
+    if (storage_load_config(&cfg) == ESP_OK && cfg.dhcp_enabled) {
+        snprintf(cfg.ip, sizeof(cfg.ip), IPSTR, IP2STR(&ip_info->ip));
+        snprintf(cfg.netmask, sizeof(cfg.netmask), IPSTR, IP2STR(&ip_info->netmask));
+        snprintf(cfg.gw, sizeof(cfg.gw), IPSTR, IP2STR(&ip_info->gw));
+        cfg.dhcp_enabled = false;
+        storage_save_config(&cfg);
+        ESP_LOGI(TAG, "IP DHCP capturado como IP fixo: %s", cfg.ip);
+    }
 }
 
 esp_err_t eth_w5500_init(void)
@@ -72,8 +83,9 @@ esp_err_t eth_w5500_init(void)
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_ETH_GOT_IP, &got_ip_event_handler, NULL));
 
     // Cria interface netif para Ethernet SPI
+    // NOTA: usa "ETH_DEF" (if_key padrao) para compatibilidade com o mDNS do ESP-IDF,
+    // que procura "ETH_DEF" via esp_netif_get_handle_from_ifkey()
     esp_netif_inherent_config_t eth_behav_cfg = ESP_NETIF_INHERENT_DEFAULT_ETH();
-    eth_behav_cfg.if_key = "ETH_SPI_5500";
     eth_behav_cfg.if_desc = "eth0";
     eth_behav_cfg.route_prio = 50;
     
@@ -85,15 +97,15 @@ esp_err_t eth_w5500_init(void)
     s_eth_netif = esp_netif_new(&eth_netif_config);
 
     // Se IP estatico estiver configurado, para DHCP client e define IP
-    if (!config.eth_dhcp) {
+    if (!config.dhcp_enabled) {
         ESP_LOGI(TAG, "Configurando IP estatico para Ethernet...");
         esp_netif_dhcpc_stop(s_eth_netif);
         
         esp_netif_ip_info_t ip_info;
         memset(&ip_info, 0, sizeof(esp_netif_ip_info_t));
-        ip_info.ip.addr = ipaddr_addr(config.eth_ip);
-        ip_info.netmask.addr = ipaddr_addr(config.eth_netmask);
-        ip_info.gw.addr = ipaddr_addr(config.eth_gw);
+        ip_info.ip.addr = ipaddr_addr(config.ip);
+        ip_info.netmask.addr = ipaddr_addr(config.netmask);
+        ip_info.gw.addr = ipaddr_addr(config.gw);
         
         esp_netif_set_ip_info(s_eth_netif, &ip_info);
     }

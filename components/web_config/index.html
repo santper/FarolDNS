@@ -13,6 +13,7 @@
             --primary: #38bdf8;
             --primary-hover: #0ea5e9;
             --success: #10b981;
+            --warning: #f59e0b;
             --border: rgba(255, 255, 255, 0.1);
             --input-bg: rgba(15, 23, 42, 0.6);
         }
@@ -20,32 +21,35 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start;
             min-height: 100vh;
             padding: 20px;
         }
         .container {
             width: 100%;
             max-width: 650px;
+        }
+        .card {
             background: var(--card-bg);
             backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 30px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
         }
         h1 {
             font-size: 24px;
             font-weight: 700;
             text-align: center;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             background: linear-gradient(to right, #38bdf8, #818cf8);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
@@ -54,7 +58,7 @@
             text-align: center;
             color: var(--text-muted);
             font-size: 14px;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
         h2 {
             font-size: 16px;
@@ -87,7 +91,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        input[type="text"], input[type="password"] {
+        input[type="text"], input[type="password"], select {
             width: 100%;
             padding: 10px 12px;
             background: var(--input-bg);
@@ -97,11 +101,12 @@
             font-size: 14px;
             transition: all 0.2s ease;
         }
-        input[type="text"]:focus, input[type="password"]:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: var(--primary);
             box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
         }
+        select { cursor: pointer; }
         .checkbox-group {
             display: flex;
             align-items: center;
@@ -141,15 +146,10 @@
             transform: translateY(-1px);
             box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
         }
-        .btn:active {
-            transform: translateY(1px);
-        }
-        .static-fields {
-            transition: all 0.3s ease;
-        }
-        .hidden {
-            display: none;
-        }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .static-fields { transition: all 0.3s ease; }
+        .hidden { display: none; }
         .alert {
             padding: 14px;
             border-radius: 8px;
@@ -158,28 +158,94 @@
             text-align: center;
             display: none;
         }
-        .alert-success {
-            background: rgba(16, 185, 129, 0.2);
-            border: 1px solid var(--success);
-            color: #a7f3d0;
+        .alert-success { background: rgba(16, 185, 129, 0.2); border: 1px solid var(--success); color: #a7f3d0; }
+        .alert-error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; }
+        #status-card {
+            text-align: center;
+            padding: 20px;
         }
-        .alert-error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid #ef4444;
-            color: #fca5a5;
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .status-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 2s infinite;
+        }
+        .status-dot.online { background: var(--success); box-shadow: 0 0 8px var(--success); }
+        .status-dot.offline { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .stat-item {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        .status-ip {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>FarolDNS Dashboard</h1>
-        <div class="subtitle">Painel de Configuração do Dispositivo</div>
-        
+        <div class="subtitle">Servidor DNS Embarcado</div>
+
+        <div class="card" id="status-card">
+            <div class="status-indicator">
+                <span class="status-dot" id="status-dot"></span>
+                <span id="status-text">CARREGANDO...</span>
+            </div>
+            <div class="status-ip" id="status-ip"></div>
+            <div class="status-ip" id="status-mac"></div>
+            <div class="status-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-dns">0</div>
+                    <div class="stat-label">Consultas DNS</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-rx">0</div>
+                    <div class="stat-label">KB Recebidos</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="stat-tx">0</div>
+                    <div class="stat-label">KB Enviados</div>
+                </div>
+            </div>
+        </div>
+
         <div id="alert-success" class="alert alert-success">Configuração salva com sucesso! O dispositivo reiniciará em instantes.</div>
         <div id="alert-error" class="alert alert-error">Falha ao salvar as configurações. Tente novamente.</div>
 
         <form id="config-form">
-            <div class="section">
+            <div class="card">
                 <h2>Geral</h2>
                 <div class="form-group">
                     <label for="hostname">Nome do Dispositivo (Hostname)</label>
@@ -189,33 +255,42 @@
                     <label for="upstream_dns">Servidor DNS Upstream</label>
                     <input type="text" id="upstream_dns" name="upstream_dns" placeholder="1.1.1.1" required>
                 </div>
+                <div class="form-group">
+                    <label for="net_mode">Modo de Rede</label>
+                    <select id="net_mode" name="net_mode">
+                        <option value="0">Automático (failover ETH ↔ Wi-Fi)</option>
+                        <option value="1">Apenas Ethernet</option>
+                        <option value="2">Apenas Wi-Fi</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="section">
-                <h2>Ethernet (W5500)</h2>
+            <div class="card">
+                <h2>Configuração de IP</h2>
+                <p style="font-size:13px;color:var(--text-muted);margin-bottom:15px;">As configurações de IP são compartilhadas entre as interfaces Ethernet e Wi-Fi.</p>
                 <div class="checkbox-group">
-                    <input type="checkbox" id="eth_dhcp" name="eth_dhcp">
-                    <label for="eth_dhcp">Usar DHCP (Obter IP automaticamente)</label>
+                    <input type="checkbox" id="dhcp_enabled" name="dhcp_enabled">
+                    <label for="dhcp_enabled">Usar DHCP (Obter IP automaticamente)</label>
                 </div>
-                <div id="eth_static_group" class="static-fields">
+                <div id="static_group" class="static-fields">
                     <div class="form-group">
-                        <label for="eth_ip">Endereço IP Estático</label>
-                        <input type="text" id="eth_ip" name="eth_ip" placeholder="192.168.1.100">
+                        <label for="ip">Endereço IP Fixo</label>
+                        <input type="text" id="ip" name="ip" placeholder="192.168.1.100">
                     </div>
                     <div class="form-group row">
                         <div>
-                            <label for="eth_netmask">Máscara de Rede</label>
-                            <input type="text" id="eth_netmask" name="eth_netmask" placeholder="255.255.255.0">
+                            <label for="netmask">Máscara de Rede</label>
+                            <input type="text" id="netmask" name="netmask" placeholder="255.255.255.0">
                         </div>
                         <div>
-                            <label for="eth_gw">Gateway</label>
-                            <input type="text" id="eth_gw" name="eth_gw" placeholder="192.168.1.1">
+                            <label for="gw">Gateway</label>
+                            <input type="text" id="gw" name="gw" placeholder="192.168.1.1">
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="section">
+            <div class="card" id="wifi-card">
                 <h2>Wi-Fi (Estação)</h2>
                 <div class="form-group">
                     <label for="wifi_ssid">SSID da Rede Wi-Fi</label>
@@ -225,26 +300,6 @@
                     <label for="wifi_pass">Senha do Wi-Fi</label>
                     <input type="password" id="wifi_pass" name="wifi_pass">
                 </div>
-                <div class="checkbox-group">
-                    <input type="checkbox" id="wifi_dhcp" name="wifi_dhcp">
-                    <label for="wifi_dhcp">Usar DHCP (Obter IP automaticamente)</label>
-                </div>
-                <div id="wifi_static_group" class="static-fields">
-                    <div class="form-group">
-                        <label for="wifi_ip">Endereço IP Estático</label>
-                        <input type="text" id="wifi_ip" name="wifi_ip" placeholder="192.168.1.101">
-                    </div>
-                    <div class="form-group row">
-                        <div>
-                            <label for="wifi_netmask">Máscara de Rede</label>
-                            <input type="text" id="wifi_netmask" name="wifi_netmask" placeholder="255.255.255.0">
-                        </div>
-                        <div>
-                            <label for="wifi_gw">Gateway</label>
-                            <input type="text" id="wifi_gw" name="wifi_gw" placeholder="192.168.1.1">
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <button type="submit" class="btn">Salvar Configurações</button>
@@ -252,42 +307,72 @@
     </div>
 
     <script>
-        function toggleFields(checkboxId, groupId) {
-            const checkbox = document.getElementById(checkboxId);
-            const group = document.getElementById(groupId);
-            if (checkbox.checked) {
-                group.classList.add('hidden');
-            } else {
-                group.classList.remove('hidden');
-            }
+        function toggleStaticFields() {
+            const dhcp = document.getElementById('dhcp_enabled');
+            const group = document.getElementById('static_group');
+            group.classList.toggle('hidden', dhcp.checked);
         }
 
-        document.getElementById('eth_dhcp').addEventListener('change', () => toggleFields('eth_dhcp', 'eth_static_group'));
-        document.getElementById('wifi_dhcp').addEventListener('change', () => toggleFields('wifi_dhcp', 'wifi_static_group'));
+        function toggleNetSections(netMode) {
+            const wifiCard = document.getElementById('wifi-card');
+            wifiCard.classList.toggle('hidden', netMode == 1);
+        }
 
-        // Carregar dados iniciais do dispositivo via JSON
+        function formatBytes(bytes) {
+            return (bytes / 1024).toFixed(1);
+        }
+
+        function updateStatus() {
+            fetch('/api/status')
+                .then(r => r.json())
+                .then(data => {
+                    const dot = document.getElementById('status-dot');
+                    const text = document.getElementById('status-text');
+                    const ip = document.getElementById('status-ip');
+                    const mac = document.getElementById('status-mac');
+                    const isOnline = data.state && data.state.includes('ATIVO');
+                    
+                    dot.className = 'status-dot ' + (isOnline ? 'online' : 'offline');
+                    text.textContent = data.state || 'DESCONHECIDO';
+                    ip.textContent = data.ip ? 'IP: ' + data.ip : '';
+                    mac.textContent = data.mac ? 'MAC: ' + data.mac : '';
+
+                    document.getElementById('stat-dns').textContent = data.dns_queries || 0;
+                    document.getElementById('stat-rx').textContent = formatBytes(data.bytes_received || 0);
+                    document.getElementById('stat-tx').textContent = formatBytes(data.bytes_sent || 0);
+                })
+                .catch(() => {
+                    document.getElementById('status-text').textContent = 'OFFLINE';
+                    document.getElementById('status-dot').className = 'status-dot offline';
+                });
+        }
+
+        document.getElementById('dhcp_enabled').addEventListener('change', toggleStaticFields);
+        document.getElementById('net_mode').addEventListener('change', (e) => toggleNetSections(parseInt(e.target.value)));
+
+        // Carregar dados iniciais
         window.addEventListener('DOMContentLoaded', () => {
             fetch('/api/config')
                 .then(res => res.json())
                 .then(data => {
-                    document.getElementById('hostname').value = data.hostname || 'FarolDNS';
+                    document.getElementById('hostname').value = data.hostname || 'faroldns1';
                     document.getElementById('upstream_dns').value = data.upstream_dns || '1.1.1.1';
-                    
-                    document.getElementById('eth_dhcp').checked = data.eth_dhcp;
-                    document.getElementById('eth_ip').value = data.eth_ip || '';
-                    document.getElementById('eth_netmask').value = data.eth_netmask || '';
-                    document.getElementById('eth_gw').value = data.eth_gw || '';
-                    toggleFields('eth_dhcp', 'eth_static_group');
+                    document.getElementById('net_mode').value = data.net_mode || 0;
+                    toggleNetSections(data.net_mode || 0);
+
+                    document.getElementById('dhcp_enabled').checked = data.dhcp_enabled;
+                    document.getElementById('ip').value = data.ip || '';
+                    document.getElementById('netmask').value = data.netmask || '';
+                    document.getElementById('gw').value = data.gw || '';
+                    toggleStaticFields();
 
                     document.getElementById('wifi_ssid').value = data.wifi_ssid || '';
                     document.getElementById('wifi_pass').value = data.wifi_pass || '';
-                    document.getElementById('wifi_dhcp').checked = data.wifi_dhcp;
-                    document.getElementById('wifi_ip').value = data.wifi_ip || '';
-                    document.getElementById('wifi_netmask').value = data.wifi_netmask || '';
-                    document.getElementById('wifi_gw').value = data.wifi_gw || '';
-                    toggleFields('wifi_dhcp', 'wifi_static_group');
                 })
-                .catch(err => console.error('Erro ao carregar dados do dispositivo:', err));
+                .catch(err => console.error('Erro ao carregar config:', err));
+
+            updateStatus();
+            setInterval(updateStatus, 5000);
         });
 
         // Enviar formulário
@@ -295,32 +380,26 @@
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = {};
-            formData.forEach((value, key) => {
-                data[key] = value;
-            });
-            // Adiciona explicitamente o estado dos checkboxes
-            data.eth_dhcp = document.getElementById('eth_dhcp').checked;
-            data.wifi_dhcp = document.getElementById('wifi_dhcp').checked;
+            formData.forEach((value, key) => { data[key] = value; });
+            data.dhcp_enabled = document.getElementById('dhcp_enabled').checked;
+            data.net_mode = parseInt(document.getElementById('net_mode').value);
 
             fetch('/save', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             })
             .then(res => {
                 if (res.ok) {
                     document.getElementById('alert-success').style.display = 'block';
                     document.getElementById('alert-error').style.display = 'none';
-                    // Desabilita form
-                    document.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                    document.querySelectorAll('input, button, select').forEach(el => el.disabled = true);
                 } else {
                     document.getElementById('alert-success').style.display = 'none';
                     document.getElementById('alert-error').style.display = 'block';
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 document.getElementById('alert-success').style.display = 'none';
                 document.getElementById('alert-error').style.display = 'block';
             });

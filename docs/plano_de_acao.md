@@ -65,33 +65,36 @@ O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
 
 ---
 
-## Fase 1 — Correções e Estabilização (Prioridade Alta)
+## Fase 1 — Correções e Estabilização ✅
+
+| # | Tarefa | Status |
+|---|--------|--------|
+| 1.1 | mDNS gerenciado automaticamente pelo ESP-IDF | ✅ |
+| 1.2 | `vTaskDelay(4000)` → `ulTaskNotifyTake(8s)` | ✅ |
+| 1.3 | Debounce 500ms pós-timeout | ✅ |
+| 1.4 | ISR duplicado: `ESP_ERR_INVALID_STATE` como OK | ✅ |
+
+## Fase 2 — IP Único + Dashboard com Status ✅
+
+As tarefas 2.1, 3.1 e 3.2 foram fundidas e implementadas em uma única rodada:
 
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
-| 1.1 | **Verificar mDNS nas interfaces** | — | Investigado: ESP-IDF v5.3 gerencia mDNS automaticamente via eventos de rede (`CONFIG_MDNS_PREDEF_NETIF_STA/AP/ETH`). Nenhuma ação manual necessária. |
-| 1.2 | **Atraso de boot (4s)** | `network_manager.c:63` | Substituir `vTaskDelay(4000)` por espera orientada a evento: aguardar `ETHERNET_EVENT_CONNECTED` com timeout de ~8s, ou usar `ulTaskNotifyTake` com timeout. Testes mostraram link Ethernet entre 3s e 5s+. |
-| 1.3 | **Race condition boot** | `network_manager.c` | Após o timeout, verificar `eth_w5500_is_connected()` **uma vez mais** antes de decidir fallback. O evento `ETHERNET_EVENT_CONNECTED` pode chegar durante o processamento do timeout. |
-| 1.4 | **Remover `gpio_install_isr_service` duplicado** | `ethernet_w5500.c:140` | Pode crashar se já instalado por outro componente. Tratar retorno `ESP_ERR_INVALID_STATE` como OK. |
+| 2.a | **Struct IP único** | `storage_manager.h/c` | Substituído `wifi_ip/eth_ip` + `wifi_dhcp/eth_dhcp` por conjunto único: `dhcp_enabled`, `ip`, `netmask`, `gw`. Adicionado `config_version` para migração automática de NVS. |
+| 2.b | **Seletor de modo de rede** | `network_manager.c`, `index.html` | Campo `net_mode` (auto/eth_only/wifi_only) no config + seletor na UI. Oculta seção conforme modo. |
+| 2.c | **Captura automática de IP DHCP** | `ethernet_w5500.c`, `wifi_manager.c` | No primeiro `GOT_IP`, salva o IP obtido como fixo e desliga DHCP. Próximos boots usam esse IP. |
+| 2.d | **`GET /api/status`** | `web_config.c`, `dns_server.h/c` | Retorna: interface ativa, IP, MAC, uptime, consultas DNS, bytes rx/tx. Contadores com `volatile` para leitura cross-task. |
+| 2.e | **Dashboard com status** | `index.html` | Card animado no topo com indicador visual, IP, MAC, consultas DNS, KB trafegados. Polling a cada 5s. |
+| 2.f | **Hostname único via probe mDNS** | `mdns_manager.c/h` | Sonda `faroldns1`, `faroldns2`... via `mdns_query_a` até achar um disponível. Default: `faroldns1`. Salva na NVS. |
+| 2.g | **Compatibilidade mDNS com Ethernet** | `ethernet_w5500.c` | `if_key` alterado de `"ETH_SPI_5500"` para `"ETH_DEF"` (o mDNS busca por `ETH_DEF`). |
 
 ---
 
-## Fase 2 — Controle de Interfaces (Média Prioridade)
+## Fase 3 — Pendentes (Média Prioridade)
 
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
-| 2.1 | **Seletor de modo de rede** | `storage_manager.h`, `web_config.c`, `index.html` | Adicionar campo `net_mode` ao `faroldns_config_t` com 3 opções: `eth_only`, `wifi_only`, `auto` (failover atual). Interface não selecionada fica desligada. |
-| 2.2 | **Migrar config p/ NVS em campo individual** | `storage_manager.c` | (Baixa prioridade) Em vez de blob único, salvar campos individuais na NVS para permitir versionamento futuro e evitar corrupção por mudança de struct. |
-
----
-
-## Fase 3 — Melhorias na Web UI (Média Prioridade)
-
-| # | Tarefa | Arquivos | Descrição |
-|---|--------|----------|-----------|
-| 3.1 | **Informações do sistema na dashboard** | `web_config.c`, `index.html` | Nova rota `GET /api/status` retornando: interface ativa, IPs, estado da rede, contadores de pacotes DNS. |
-| 3.2 | **Exibir IP atual na UI** | `index.html`, `web_config.c` | Mostrar IP(s) vigentes, interface ativa, estado do sistema no canto superior. |
-| 3.3 | **Proteger painel com senha** | `web_config.c` | Adicionar autenticação básica ou token no `POST /save` para evitar que qualquer pessoa na rede mude a configuração. |
+| 3.1 | **Proteger painel com senha** | `web_config.c` | Adicionar autenticação básica ou token no `POST /save` para evitar que qualquer pessoa na rede mude a configuração. |
 
 ---
 

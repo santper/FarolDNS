@@ -17,6 +17,9 @@ static const char *TAG = "DNSServer";
 
 static TaskHandle_t s_dns_task_handle = NULL;
 static bool s_running = false;
+static volatile uint32_t s_query_count = 0;
+static volatile uint32_t s_bytes_sent = 0;
+static volatile uint32_t s_bytes_received = 0;
 
 static void dns_server_task(void *pvParameters)
 {
@@ -77,6 +80,9 @@ static void dns_server_task(void *pvParameters)
             break;
         }
 
+        s_query_count++;
+        s_bytes_received += len;
+
         char client_ip_str[32];
         inet_ntoa_r(client_addr.sin_addr, client_ip_str, sizeof(client_ip_str));
         ESP_LOGI(TAG, "Consulta DNS recebida de %s:%d (%d bytes)", 
@@ -134,7 +140,9 @@ static void dns_server_task(void *pvParameters)
             // Envia a resposta de volta ao cliente original
             int sent_back = sendto(server_sock, tx_buffer, reply_len, 0,
                                   (struct sockaddr *)&client_addr, socklen);
-            if (sent_back < 0) {
+            if (sent_back >= 0) {
+                s_bytes_sent += sent_back;
+            } else {
                 ESP_LOGE(TAG, "Falha ao responder ao cliente: errno %d", errno);
             }
         }
@@ -167,4 +175,19 @@ esp_err_t dns_server_start(void)
 void dns_server_stop(void)
 {
     s_running = false;
+}
+
+uint32_t dns_server_get_query_count(void)
+{
+    return s_query_count;
+}
+
+uint32_t dns_server_get_bytes_sent(void)
+{
+    return s_bytes_sent;
+}
+
+uint32_t dns_server_get_bytes_received(void)
+{
+    return s_bytes_received;
 }

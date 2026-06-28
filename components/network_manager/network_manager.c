@@ -58,22 +58,31 @@ static void on_network_event(void *arg, esp_event_base_t event_base,
 static void network_monitor_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Tarefa de monitoramento de rede iniciada.");
-    
-    // Espera inicial orientada a evento para negociacao do link Ethernet no boot
-    // Acorda imediatamente se ETHERNET_EVENT_CONNECTED chegar, ou timeout de 8s
-    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(8000));
 
-    // Debounce: garante que o sinal de link foi processado mesmo se chegou
-    // no limite do timeout (elimina race condition entre evento e checagem)
-    vTaskDelay(pdMS_TO_TICKS(500));
+    faroldns_config_t config;
+    if (storage_load_config(&config) != ESP_OK) {
+        storage_get_default_config(&config);
+    }
 
-    ESP_LOGI(TAG, "Boot phase complete. Initial Ethernet state: %sconnected",
-             eth_w5500_is_connected() ? "" : "not ");
+    // Só aguarda link Ethernet se o modo permitir uso da interface cabeada
+    if (config.net_mode != NET_MODE_WIFI_ONLY) {
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(8000));
+        vTaskDelay(pdMS_TO_TICKS(500));
+        ESP_LOGI(TAG, "Boot phase complete. Initial Ethernet state: %sconnected",
+                 eth_w5500_is_connected() ? "" : "not ");
+    } else {
+        ESP_LOGI(TAG, "Modo Wi-Fi only. Pulando espera de link Ethernet.");
+    }
 
     while (1) {
+        // Recarrega config a cada iteracao (pode ter mudado via web UI apos reboot)
+        if (storage_load_config(&config) != ESP_OK) {
+            storage_get_default_config(&config);
+        }
+
         network_state_t current_state = network_manager_get_state();
-        bool eth_ok = eth_w5500_is_connected();
-        
+        bool eth_ok = eth_w5500_is_connected() && (config.net_mode != NET_MODE_WIFI_ONLY);
+
         if (eth_ok) {
             if (current_state != NET_STATE_ETHERNET) {
                 ESP_LOGI(TAG, "Ethernet conectada e ativa. Desativando Wi-Fi...");
@@ -81,17 +90,19 @@ static void network_monitor_task(void *pvParameters)
                 set_state(NET_STATE_ETHERNET);
             }
         } else {
-            // Ethernet indisponivel/desconectada
             if (current_state == NET_STATE_ETHERNET || current_state == NET_STATE_INIT) {
-                ESP_LOGW(TAG, "Ethernet inativa ou cabo desconectado. Iniciando fallback via Wi-Fi...");
-                
-                faroldns_config_t config;
-                if (storage_load_config(&config) == ESP_OK && strlen(config.wifi_ssid) > 0) {
-                    set_state(NET_STATE_WIFI_STA);
-                    wifi_manager_start_sta();
+                if (config.net_mode == NET_MODE_ETH_ONLY) {
+                    ESP_LOGW(TAG, "Ethernet inativa. Modo ETH_ONLY: sem fallback Wi-Fi.");
+                    set_state(NET_STATE_DISCONNECTED);
                 } else {
-                    set_state(NET_STATE_WIFI_AP);
-                    wifi_manager_start_ap();
+                    ESP_LOGW(TAG, "Ethernet inativa ou modo Wi-Fi only. Iniciando Wi-Fi...");
+                    if (strlen(config.wifi_ssid) > 0) {
+                        set_state(NET_STATE_WIFI_STA);
+                        wifi_manager_start_sta();
+                    } else {
+                        set_state(NET_STATE_WIFI_AP);
+                        wifi_manager_start_ap();
+                    }
                 }
             }
         }
