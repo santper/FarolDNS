@@ -116,7 +116,21 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
 *   **Correção mDNS no Ethernet**: `if_key` do netif Ethernet alterado de `"ETH_SPI_5500"` para `"ETH_DEF"` (o mDNS do ESP-IDF busca por `ETH_DEF`).
 *   **Contadores DNS**: Adicionados `volatile` para leitura correta entre tasks (DNS task x HTTP task).
 *   **Arquivos modificados**: 13 arquivos em `components/` (storage_manager, ethernet_w5500, wifi_manager, network_manager, dns_server, mdns_manager, web_config).
-*   **Commits**: `2020d87` (Fase 1), pendente (Fase 2)
+*   **Commits**: `2020d87` (Fase 1), `89e83e9` (Fase 2)
+
+---
+
+### G. 28 de Junho/2026 — Flash 16MB, OTA, e particionamento
+
+*   **Objetivo**: Aumentar flash de 2MB para 16MB (módulo N16R8) e habilitar OTA (atualização over-the-air) para suportar o futuro resolver recursivo que exigirá mais espaço.
+*   **Mudanças**:
+    *   `sdkconfig.defaults`: adicionado `CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y`, `CONFIG_PARTITION_TABLE_CUSTOM=y`
+    *   `partitions.csv` (novo): dual OTA com partições de 6MB cada + storage SPIFFS de 4MB para blocklists futuras
+    *   App binary: 927KB, ocupando apenas 15% da partição ota_0 de 6MB (85% livre)
+*   **Impacto**: NVS foi resetada (layout das partições mudou). IP fixo e hostname são recapturados automaticamente via DHCP capture + mDNS probe.
+*   **Arquivos novos**: `partitions.csv`
+*   **Arquivos modificados**: `sdkconfig.defaults`
+*   **Commit**: pendente
 
 ---
 

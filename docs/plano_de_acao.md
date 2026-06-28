@@ -90,11 +90,43 @@ As tarefas 2.1, 3.1 e 3.2 foram fundidas e implementadas em uma única rodada:
 
 ---
 
-## Fase 3 — Pendentes (Média Prioridade)
+## Fase 3 — Pré-requisito: Flash 16MB + OTA ✅
+
+| # | Tarefa | Descrição | Status |
+|---|--------|-----------|--------|
+| 3.a | **Flash 2MB → 16MB** | `sdkconfig.defaults`: `CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y` | ✅ |
+| 3.b | **Partição customizada (OTA)** | `partitions.csv`: ota_0 6MB, ota_1 6MB, storage 4MB | ✅ |
+| 3.c | **SPIFFS habilitado** | Config no `sdkconfig.defaults` para future uso com blocklists | ✅ |
+
+---
+
+## Fase 4 — Resolver DNS Recursivo (Prioridade Máxima)
 
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
-| 3.1 | **Proteger painel com senha** | `web_config.c` | Adicionar autenticação básica ou token no `POST /save` para evitar que qualquer pessoa na rede mude a configuração. |
+| 4.1 | **Root hints embarcados** | `dns_server.c`, `root_hints.h` | Endereços dos 13 servidores raiz DNS para iniciar resolução recursiva |
+| 4.2 | **Máquina de estados recursiva** | `dns_server.c` | Query root → TLD → autoritativo, seguir delegações CNAME, tratar NXDOMAIN |
+| 4.3 | **Cache DNS em PSRAM** | `dns_server.c`, `dns_cache.c` | Hash table com TTL, usando heap PSRAM (8MB) |
+| 4.4 | **EDNS0** | `dns_server.c` | Suporte a consultas >512 bytes |
+
+---
+
+## Fase 5 — MicroSD + Bloqueio de Anúncios (Prioridade Média)
+
+| # | Tarefa | Arquivos | Descrição |
+|---|--------|----------|-----------|
+| 5.1 | **Driver MicroSD SPI** | `components/sd_card/` (novo) | Inicializar SD card GPIO 4-7, montar FATFS |
+| 5.2 | **Carregar blocklists** | `dns_server.c` | Ler listas estilo Pi-Hole do SD para PSRAM |
+| 5.3 | **Bloqueio DNS** | `dns_server.c` | Responder NXDOMAIN para domínios bloqueados |
+
+---
+
+## Fase 6 — Baixa Prioridade
+
+| # | Tarefa | Arquivos | Descrição |
+|---|--------|----------|-----------|
+| 6.1 | **Kconfig.projbuild** | Cada componente | Expor configurações no `idf.py menuconfig` |
+| 6.2 | **Senha no painel** | `web_config.c` | Autenticação básica no `POST /save` |
 
 ---
 
