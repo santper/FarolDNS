@@ -59,8 +59,16 @@ static void network_monitor_task(void *pvParameters)
 {
     ESP_LOGI(TAG, "Tarefa de monitoramento de rede iniciada.");
     
-    // Espera inicial de 4 segundos para negociacao do link Ethernet no boot
-    vTaskDelay(pdMS_TO_TICKS(4000));
+    // Espera inicial orientada a evento para negociacao do link Ethernet no boot
+    // Acorda imediatamente se ETHERNET_EVENT_CONNECTED chegar, ou timeout de 8s
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(8000));
+
+    // Debounce: garante que o sinal de link foi processado mesmo se chegou
+    // no limite do timeout (elimina race condition entre evento e checagem)
+    vTaskDelay(pdMS_TO_TICKS(500));
+
+    ESP_LOGI(TAG, "Boot phase complete. Initial Ethernet state: %sconnected",
+             eth_w5500_is_connected() ? "" : "not ");
 
     while (1) {
         network_state_t current_state = network_manager_get_state();

@@ -136,8 +136,12 @@ esp_err_t eth_w5500_init(void)
     // a interrupcao fisica INT nao e estritamente vinculada pelo driver para eventos,
     // mas a struct do driver do ESP-IDF requer definir int_gpio_num.
     w5500_config.int_gpio_num = ETH_PIN_INT; 
-    // Inicializa o servico de interrupcao GPIO (ignora erro caso ja esteja instalado)
-    gpio_install_isr_service(0);
+    // Inicializa o servico de interrupcao GPIO
+    esp_err_t isr_ret = gpio_install_isr_service(0);
+    if (isr_ret != ESP_OK && isr_ret != ESP_ERR_INVALID_STATE) {
+        ESP_LOGE(TAG, "Falha ao instalar GPIO ISR service: %s", esp_err_to_name(isr_ret));
+        return isr_ret;
+    }
 
     ESP_LOGI(TAG, "Criando MAC e PHY...");
     esp_eth_mac_t *mac = esp_eth_mac_new_w5500(&w5500_config, &mac_config);

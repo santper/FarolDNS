@@ -69,7 +69,7 @@ O log capturou **3 boots** do firmware corrigido (`b2a78ae-dirty`). Resultados:
 
 | # | Tarefa | Arquivos | Descrição |
 |---|--------|----------|-----------|
-| 1.1 | **Corrigir mDNS p/ interface ativa** | `mdns_manager.c`, `network_manager.c` | Chamar `mdns_register_netif()` na interface ativa (Ethernet ou Wi-Fi) ao trocar estado. Atualmente o mDNS só funciona no Wi-Fi porque a netif padrão não é atualizada. |
+| 1.1 | **Verificar mDNS nas interfaces** | — | Investigado: ESP-IDF v5.3 gerencia mDNS automaticamente via eventos de rede (`CONFIG_MDNS_PREDEF_NETIF_STA/AP/ETH`). Nenhuma ação manual necessária. |
 | 1.2 | **Atraso de boot (4s)** | `network_manager.c:63` | Substituir `vTaskDelay(4000)` por espera orientada a evento: aguardar `ETHERNET_EVENT_CONNECTED` com timeout de ~8s, ou usar `ulTaskNotifyTake` com timeout. Testes mostraram link Ethernet entre 3s e 5s+. |
 | 1.3 | **Race condition boot** | `network_manager.c` | Após o timeout, verificar `eth_w5500_is_connected()` **uma vez mais** antes de decidir fallback. O evento `ETHERNET_EVENT_CONNECTED` pode chegar durante o processamento do timeout. |
 | 1.4 | **Remover `gpio_install_isr_service` duplicado** | `ethernet_w5500.c:140` | Pode crashar se já instalado por outro componente. Tratar retorno `ESP_ERR_INVALID_STATE` como OK. |
