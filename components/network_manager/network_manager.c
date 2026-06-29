@@ -75,11 +75,6 @@ static void network_monitor_task(void *pvParameters)
     }
 
     while (1) {
-        // Recarrega config a cada iteracao (pode ter mudado via web UI apos reboot)
-        if (storage_load_config(&config) != ESP_OK) {
-            storage_get_default_config(&config);
-        }
-
         network_state_t current_state = network_manager_get_state();
         bool eth_ok = eth_w5500_is_connected() && (config.net_mode != NET_MODE_WIFI_ONLY);
 

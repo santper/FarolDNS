@@ -12,6 +12,7 @@ static const char *TAG = "Main";
 
 void app_main(void)
 {
+    ESP_LOGI(TAG, "[FarolDNS] %s", dns_server_get_version());
     ESP_LOGI(TAG, "[FarolDNS] Inicializando Servidor DNS Modular...");
 
     // 1. Inicializa a pilha TCP/IP e o loop de eventos padrao

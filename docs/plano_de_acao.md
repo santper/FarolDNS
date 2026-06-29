@@ -100,14 +100,16 @@ As tarefas 2.1, 3.1 e 3.2 foram fundidas e implementadas em uma única rodada:
 
 ---
 
-## Fase 4 — Resolver DNS Recursivo (Prioridade Máxima)
+## Fase 4 — Resolver DNS Recursivo ⏸️ (Suspenso)
 
-| # | Tarefa | Arquivos | Descrição |
-|---|--------|----------|-----------|
-| 4.1 | **Root hints embarcados** | `dns_server.c`, `root_hints.h` | Endereços dos 13 servidores raiz DNS para iniciar resolução recursiva |
-| 4.2 | **Máquina de estados recursiva** | `dns_server.c` | Query root → TLD → autoritativo, seguir delegações CNAME, tratar NXDOMAIN |
-| 4.3 | **Cache DNS em PSRAM** | `dns_server.c`, `dns_cache.c` | Hash table com TTL, usando heap PSRAM (8MB) |
-| 4.4 | **EDNS0** | `dns_server.c` | Suporte a consultas >512 bytes |
+| # | Tarefa | Status | Observação |
+|---|--------|--------|------------|
+| 4.1 | **Root hints embarcados** | ✅ | Criado `dns_root_hints.h` |
+| 4.2 | **Resolução recursiva iterativa** | ❌ | Implementado mas com bugs na delegação NS/glue. Substituído temporariamente por forwarder com cache. |
+| 4.3 | **Cache DNS em PSRAM** | ✅ | Implementado e funcionando no forwarder |
+| 4.4 | **EDNS0** | ✅ | Buffer de 1500 bytes habilitado |
+
+> **Nota**: O recursivo está suspenso. O forwarder com cache (atual) resolve rapidamente consultas repetidas via cache e encaminha as demais para o upstream (1.1.1.1). O recursivo será retomado em sessão futura.
 
 ---
 
@@ -130,29 +132,9 @@ As tarefas 2.1, 3.1 e 3.2 foram fundidas e implementadas em uma única rodada:
 
 ---
 
-## Fase 4 — DNS Cache e Performance (Baixa Prioridade)
-
-| # | Tarefa | Arquivos | Descrição |
-|---|--------|----------|-----------|
-| 4.1 | **Cache DNS em PSRAM** | `dns_server.c`, novo `components/dns_cache/` | Tabela hash simples com TTL, usando heap PSRAM (8MB disponível). Consultas repetidas resolvidas sem upstream. |
-| 4.2 | **Aumentar buffer DNS** | `dns_server.c:16` | Suportar EDNS0 (>512 bytes) para DNSSEC, IPv6 e respostas maiores. |
-| 4.3 | **Timeout adaptativo** | `dns_server.c:99-102` | Ajustar timeout baseado em latência histórica do upstream em vez de 2s fixo. |
-
----
-
-## Fase 5 — Qualidade e Testes (Contínuo)
-
-| # | Tarefa | Arquivos | Descrição |
-|---|--------|----------|-----------|
-| 5.1 | **Adicionar `Kconfig.projbuild`** | Cada componente | Permitir configuração via `idf.py menuconfig` (ex: pinos, timeouts, stack sizes, pool size). |
-| 5.2 | **Testes de unidade (Unity)** | `test/` | Testes para `storage_manager` (save/load) e `dns_server` (parse/serialização). |
-| 5.3 | **Logs estruturados** | Todos | Adicionar `ESP_LOGV` para debug verbose em cada componente. |
-
----
-
 ## Referências
 
-- `docs/historico_projeto.md` (seção E) — resumo da última sessão com correções aplicadas, resultados de testes e pendências.
+- `docs/historico_projeto.md` (seções E, F, G) — histórico completo e últimas sessões.
 - `espmon.log` — logs seriais capturados durante os testes de bancada.
 
 ---
@@ -162,7 +144,7 @@ As tarefas 2.1, 3.1 e 3.2 foram fundidas e implementadas em uma única rodada:
 Na próxima sessão, peça para a IA ler:
 
 1. `docs/plano_de_acao.md` — este arquivo (prioridades e pendências)
-2. `docs/historico_projeto.md` — histórico completo, decisões de arquitetura e última sessão (seção E)
+2. `docs/historico_projeto.md` — histórico completo, decisões de arquitetura e últimas sessões
 3. `docs/plano_de_testes.md` — cenários de teste
 4. `docs/dicas.txt` — observações do usuário
 5. `.opencoderules.md` — regras de codificação do projeto

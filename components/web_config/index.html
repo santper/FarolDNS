@@ -304,6 +304,7 @@
 
             <button type="submit" class="btn">Salvar Configurações</button>
         </form>
+        <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--text-muted);" id="footer-version"></div>
     </div>
 
     <script>
@@ -340,6 +341,7 @@
                     document.getElementById('stat-dns').textContent = data.dns_queries || 0;
                     document.getElementById('stat-rx').textContent = formatBytes(data.bytes_received || 0);
                     document.getElementById('stat-tx').textContent = formatBytes(data.bytes_sent || 0);
+                    document.getElementById('footer-version').textContent = data.version || '';
                 })
                 .catch(() => {
                     document.getElementById('status-text').textContent = 'OFFLINE';

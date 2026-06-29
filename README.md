@@ -42,12 +42,13 @@ O firmware está estruturado de forma 100% modular dentro do diretório `compone
 4. **[network_manager](components/network_manager)**: O coração da redundância. Monitora eventos das interfaces Ethernet e Wi-Fi:
    - Se o cabo Ethernet estiver conectado e obtiver IP, o Wi-Fi é desligado para economizar energia e evitar conflitos.
    - Se a Ethernet perder a conexão, o Wi-Fi é automaticamente ativado (se conecta à rede salva ou inicia em modo AP se não houver credenciais).
-5. **[dns_server](components/dns_server)**: Servidor DNS Forwarder UDP escutando na porta 53. Encaminha as queries recebidas aos clientes para o DNS Upstream configurado (ex: `1.1.1.1` ou `8.8.8.8`) com controle de timeouts.
-6. **[mdns_manager](components/mdns_manager)**: Registra o hostname local (por padrão `faroldns.local`) facilitando o acesso ao painel de controle na rede local sem precisar digitar o endereço IP.
+5. **[dns_server](components/dns_server)**: Servidor DNS forwarder UDP com cache em PSRAM. Escuta na porta 53, encaminha para upstream configurável (ex: `1.1.1.1`). Respostas são cacheadas com TTL para consultas repetidas instantâneas.
+6. **[mdns_manager](components/mdns_manager)**: Registra o hostname local (`faroldns1`, `faroldns2`... via probe automático) facilitando o acesso pelo nome sem precisar do IP.
 7. **[web_config](components/web_config)**: Servidor HTTP embarcado que serve uma interface web moderna (Dark Mode/Glassmorphism). Expõe as seguintes rotas:
-   - `GET /` -> Carrega o painel administrativo (`index.html` embutido no binário).
-   - `GET /api/config` -> Retorna as configurações atuais gravadas na NVS em formato JSON.
-   - `POST /save` -> Recebe novas configurações em formato JSON, grava na NVS e agenda um reinício suave (soft reset) do ESP32 para aplicar as mudanças.
+   - `GET /` -> Painel administrativo com status em tempo real (`index.html` embutido).
+   - `GET /api/config` -> Configurações atuais em JSON.
+   - `GET /api/status` -> Status do sistema: interface ativa, IP, MAC, uptime, consultas DNS, bytes trafegados, versão do firmware.
+   - `POST /save` -> Salva configurações em JSON, reinicia o ESP32.
 
 ---
 
@@ -55,13 +56,14 @@ O firmware está estruturado de forma 100% modular dentro do diretório `compone
 
 | # | Requisito | Descrição |
 |---|-----------|-----------|
-| RF1 | DNS Forwarder | Escuta na porta UDP 53 e encaminha consultas para upstream configurável (ex: `1.1.1.1`) |
+| RF1 | DNS Forwarder com Cache | Escuta na porta UDP 53. Cache em PSRAM com TTL. Upstream configurável (ex: `1.1.1.1`) |
 | RF2 | Failover automático | Prioridade Ethernet; se o cabo cair, Wi-Fi assume em segundos |
-| RF3 | IP estático / DHCP | Suporte a ambas interfaces, configurável via web UI |
-| RF4 | Painel web de configuração | Interface dark mode para configurar SSID, senha, DNS upstream, IPs |
-| RF5 | mDNS | Responde como `faroldns.local` na interface ativa |
-| RF6 | Persistência | Configurações salvas em NVS flash, mantidas após reboot |
+| RF3 | IP fixo único | IP compartilhado entre Ethernet e Wi-Fi. Captura automática do primeiro IP DHCP |
+| RF4 | Painel web com status | Dark mode. Status em tempo real: interface, IP, consultas DNS, bytes, versão |
+| RF5 | mDNS com probe | Hostname `faroldns1`/`faroldns2`... via sonda automática na rede |
+| RF6 | Persistência | Configurações salvas em NVS flash com versionamento |
 | RF7 | Modo AP inicial | Cria rede `FarolDNS_Setup` aberta se não houver Ethernet nem credenciais |
+| RF8 | OTA | Dual partition para atualização over-the-air futura |
 
 ## 🎯 Casos de Uso
 
@@ -74,10 +76,12 @@ O firmware está estruturado de forma 100% modular dentro do diretório `compone
 
 ## 🏛️ Decisões de Arquitetura
 
-- **Failover simples**: No máximo uma interface ativa por vez (seletor: `eth_only`, `wifi_only`, `auto`). Prioridade Ethernet quando em modo `auto`. Elimina conflitos ARP e simplifica o DNS.
+- **Failover simples**: No máximo uma interface ativa por vez (seletor: `eth_only`, `wifi_only`, `auto`). Prioridade Ethernet quando em modo `auto`. Elimina conflitos ARP.
+- **IP único**: Ethernet e Wi-Fi compartilham o mesmo IP configurado. Primeiro IP DHCP é capturado como fixo.
 - **Modular**: Cada componente em `components/` com seu `CMakeLists.txt`. `main/main.c` é apenas orquestrador.
-- **DNS forwarder (não recursivo)**: Encaminha para upstream (ex: `1.1.1.1`). Recursividade completa é postergada.
-- **Configuração em blob NVS único**: Simplicidade > versionamento. Um `esp_err_t` salva/carrega a struct inteira.
+- **DNS forwarder com cache**: Encaminha para upstream (ex: `1.1.1.1`). Cache em PSRAM (até 256 entradas, TTL). Recursivo suspenso.
+- **Configuração com versionamento**: Struct NVS com `config_version` para migração automática em caso de mudanças.
+- **Flash 16MB com OTA**: Dual partition de 6MB cada + storage de 4MB para blocklists futuras.
 
 ## 🚀 Como Compilar e Rodar
 

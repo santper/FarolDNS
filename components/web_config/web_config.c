@@ -36,12 +36,18 @@ static esp_err_t index_get_handler(httpd_req_t *req)
 // Handler para fornecer os dados de configuracao atuais em JSON
 static esp_err_t config_api_get_handler(httpd_req_t *req)
 {
+    ESP_LOGI(TAG, "GET /api/config");
     faroldns_config_t config;
     if (storage_load_config(&config) != ESP_OK) {
         storage_get_default_config(&config);
     }
 
     cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        ESP_LOGE(TAG, "cJSON_CreateObject failed");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
+        return ESP_FAIL;
+    }
     cJSON_AddNumberToObject(root, "net_mode", config.net_mode);
     cJSON_AddStringToObject(root, "hostname", config.hostname);
     cJSON_AddStringToObject(root, "upstream_dns", config.upstream_dns);
@@ -67,7 +73,13 @@ static esp_err_t config_api_get_handler(httpd_req_t *req)
 // Handler para fornecer status do sistema em JSON
 static esp_err_t status_api_get_handler(httpd_req_t *req)
 {
+    ESP_LOGI(TAG, "GET /api/status");
     cJSON *root = cJSON_CreateObject();
+    if (!root) {
+        ESP_LOGE(TAG, "cJSON_CreateObject failed");
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "OOM");
+        return ESP_FAIL;
+    }
 
     network_state_t state = network_manager_get_state();
     cJSON_AddStringToObject(root, "state", network_manager_state_to_str(state));
@@ -108,6 +120,9 @@ static esp_err_t status_api_get_handler(httpd_req_t *req)
     cJSON_AddNumberToObject(root, "dns_queries", dns_server_get_query_count());
     cJSON_AddNumberToObject(root, "bytes_sent", dns_server_get_bytes_sent());
     cJSON_AddNumberToObject(root, "bytes_received", dns_server_get_bytes_received());
+
+    // Versao do firmware
+    cJSON_AddStringToObject(root, "version", dns_server_get_version());
 
     char *json_str = cJSON_PrintUnformatted(root);
     cJSON_Delete(root);
@@ -256,6 +271,20 @@ static const httpd_uri_t config_save_post_uri = {
     .user_ctx  = NULL
 };
 
+static esp_err_t ping_get_handler(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_sendstr(req, "{\"ok\":true}");
+    return ESP_OK;
+}
+
+static const httpd_uri_t ping_get_uri = {
+    .uri       = "/api/ping",
+    .method    = HTTP_GET,
+    .handler   = ping_get_handler,
+    .user_ctx  = NULL
+};
+
 static const httpd_uri_t status_get_uri = {
     .uri       = "/api/status",
     .method    = HTTP_GET,
@@ -272,7 +301,9 @@ esp_err_t web_config_start(void)
     ESP_LOGI(TAG, "Iniciando servidor HTTP de configuracao na porta 80...");
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.stack_size = 8192; // Aumentado para lidar com cJSON e sockets confortavelmente
+    config.stack_size = 8192;
+    config.max_uri_handlers = 8;
+    config.lru_purge_enable = true;
 
     esp_err_t err = httpd_start(&s_server, &config);
     if (err == ESP_OK) {
@@ -280,6 +311,7 @@ esp_err_t web_config_start(void)
         httpd_register_uri_handler(s_server, &config_get_uri);
         httpd_register_uri_handler(s_server, &config_save_post_uri);
         httpd_register_uri_handler(s_server, &status_get_uri);
+        httpd_register_uri_handler(s_server, &ping_get_uri);
         ESP_LOGI(TAG, "Servidor HTTP iniciado com sucesso.");
     } else {
         ESP_LOGE(TAG, "Falha ao iniciar servidor HTTP: %s", esp_err_to_name(err));

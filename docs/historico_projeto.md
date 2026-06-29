@@ -130,13 +130,38 @@ O mapeamento de pinagem física da placa Waveshare está documentado e detalhado
 *   **Impacto**: NVS foi resetada (layout das partições mudou). IP fixo e hostname são recapturados automaticamente via DHCP capture + mDNS probe.
 *   **Arquivos novos**: `partitions.csv`
 *   **Arquivos modificados**: `sdkconfig.defaults`
+*   **Commit**: `d46e3c4`
+
+---
+
+### H. 28–29 de Junho/2026 — Forwarder com Cache, Dashboard, Versão Automática
+
+*   **Objetivo**: Implementar resolver DNS recursivo. Tentativa falhou por bugs na delegação NS/glue. Substituído por forwarder com cache em PSRAM + correções no dashboard.
+*   **Resolvedor DNS**:
+    *   Implementado resolvedor recursivo completo (root hints, delegação NS, seguimento CNAME) — **falhou** com SERVFAIL.
+    *   Substituído por forwarder com cache: encaminha para upstream (1.1.1.1), respostas são cacheadas em PSRAM (hash table com TTL, até 256 entradas).
+    *   Cache funcional: primeira consulta ~800ms, seguintes ~2-3ms.
+*   **Correções no Dashboard**:
+    *   Bug crítico: erro de sintaxe JavaScript (linha do `.then()` mal fechada) impedia a execução de todo o script.
+    *   APIs `/api/config` e `/api/status` funcionavam via curl mas não no navegador.
+    *   Corrigido: sintaxe JS arrumada, dashboard agora mostra status, contadores e versão.
+    *   Versão movida para rodapé.
+*   **Versão automática**:
+    *   `FAROLDNS_VERSION = "0.2.X"` onde X = número de commits git.
+    *   Extraído via `execute_process` no CMakeLists.txt do `dns_server`.
+    *   Exibido uma única vez no boot pelo `app_main` e no rodapé do dashboard.
+*   **Outras correções**:
+    *   Config do upstream carregada uma só vez no boot (não mais a cada consulta).
+    *   Stack do DNS server reduzida para 8192 (suficiente para forwarder).
+    *   Logs removidos do storage_manager nas consultas DNS.
+*   **Arquivos modificados**: `dns_server.c/h`, `web_config.c`, `index.html`, `main.c`, `CMakeLists.txt` (vários), `network_manager.c`.
 *   **Commit**: pendente
 
 ---
 
-## 5. Próximos Passos (Histórico — Planejamento Original)
+## 5. Próximos Passos (Atual)
 
-1.  **`web_config` (Próximo Módulo)**: Criar o servidor HTTP embarcado para o painel de configurações.
-2.  **`mdns_manager`**: Sobe o serviço mDNS para responder ao nome local `faroldns.local`.
-3.  **Cache DNS em PSRAM**: Implementar armazenamento em tabela hash na PSRAM para acelerar as consultas recorrentes.
-4.  **Resolução DNS Recursiva Completa**: Remover a dependência de resolvedores públicos e implementar a árvore de consultas raiz (Root Hints).
+1.  **Resolver DNS Recursivo** ⏸️ Suspenso. O forwarder com cache atende bem para o uso atual. Retomar quando houver tempo para debugar a delegação NS/glue.
+2.  **MicroSD + Bloqueio de Anúncios** — Pendente (Fase 5 no plano de ação).
+3.  **Kconfig.projbuild** — Expor configurações no `menuconfig`.
+4.  **Senha no painel** — Autenticação básica no `POST /save`.

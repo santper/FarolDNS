@@ -61,6 +61,18 @@ static void mdns_probe_task(void *pvParameters)
     strncpy(config.hostname, s_hostname, sizeof(config.hostname) - 1);
     storage_save_config(&config);
 
+    // Seta nome amigavel e registra servico HTTP (agora com hostname definido)
+    esp_err_t err2 = mdns_instance_name_set("Servidor FarolDNS");
+    if (err2 != ESP_OK) {
+        ESP_LOGW(TAG, "Falha ao definir nome da instancia: %s", esp_err_to_name(err2));
+    }
+    err2 = mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
+    if (err2 != ESP_OK) {
+        ESP_LOGW(TAG, "Falha ao registrar servico HTTP: %s", esp_err_to_name(err2));
+    } else {
+        ESP_LOGI(TAG, "Servico HTTP registrado no mDNS");
+    }
+
     s_probe_done = true;
     vTaskDelete(NULL);
 }
@@ -78,18 +90,6 @@ esp_err_t mdns_manager_start(void)
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Falha ao inicializar o servico mDNS: %s", esp_err_to_name(err));
         return err;
-    }
-
-    err = mdns_instance_name_set("Servidor FarolDNS");
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "Falha ao definir nome da instancia: %s", esp_err_to_name(err));
-    }
-
-    err = mdns_service_add(NULL, "_http", "_tcp", 80, NULL, 0);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Falha ao registrar servico HTTP no mDNS: %s", esp_err_to_name(err));
-    } else {
-        ESP_LOGI(TAG, "Servico HTTP registrado no mDNS.");
     }
 
     // Cria tarefa de sondagem para definir hostname unico apos rede ativa
