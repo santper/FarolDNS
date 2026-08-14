@@ -1,11 +1,1 @@
-# ESP-IDF build directory
-build/
-
-# Local configuration files
-sdkconfig
-sdkconfig.old
-
-# Arduino temporary build files
-*.ino.elf
-*.ino.hex
-*.ino.bin
+Nothing should be ignored based on the provided file changes. The only added file is a markdown document (`DNS_SECURITY_ANALYSIS.md`) which is a source/config file and should not be ignored. There are no build artifacts, dependencies, or temporary files in the changes.
